@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Планувальник</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/clusterize.js/0.19.0/clusterize.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clusterize.js/0.19.0/clusterize.min.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+
+    <div class="top-panel">
+        <div id="drop_zone" class="drop-zone">📂 Графіки</div>
+        <div id="drop_zone_cars" class="drop-zone green">🚗 Тачки</div>
+        
+        <input type="file" id="file_input" style="display:none" accept=".xlsx">
+        <input type="file" id="cars_input" style="display:none" accept=".xlsx">
+
+        <div class="control-group" style="margin-left: 20px;">
+            <label for="node_filter" style="font-weight: bold; color: #555;">📍 Вузол:</label>
+            <input type="text" id="node_filter" class="filter-input global-filter" placeholder="Наприклад, Kv-ESTc">
+        </div>
+
+        
+    </div>
+
+    <div class="main-layout">
+        <div class="side-panel">
+            <div class="panel-header">
+                <div style="margin-bottom: 8px;">🚛 Транспортні засоби</div>
+                <input type="text" id="filter_car_number" class="filter-input car-filter" placeholder="🔍 Пошук за номером авто" style="width: 100%; box-sizing: border-box;">
+            </div>
+            <div id="vehicle_list" class="vehicle-container">
+                <div class="empty-msg">Завантажте .xlsx з машинами</div>
+            </div>
+        </div>
+
+        <div class="workspace">
+            <div class="filter-bar">
+                <select id="filter_day" class="filter-input trip-filter">
+                    <option value="">Усі дні</option>
+                    <option value="0">Пн</option>
+                    <option value="1">Вт</option>
+                    <option value="2">Ср</option>
+                    <option value="3">Чт</option>
+                    <option value="4">Пт</option>
+                    <option value="5">Сб</option>
+                    <option value="6">Нд</option>
+                </select>
+
+                <select id="filter_status" class="filter-input trip-filter">
+                    <option value="">Усі рейси</option>
+                    <option value="with_auto">З авто</option>
+                    <option value="without_auto">Без авто</option>
+                </select>
+
+                <input type="text" id="filter_auto_type" class="filter-input trip-filter" placeholder="Тип авто (напр. BDF)">
+                <input type="text" id="filter_trip_type" class="filter-input trip-filter" placeholder="Тип рейсу">
+                <input type="text" id="filter_destination" class="filter-input trip-filter" placeholder="Отримувач">
+                <input type="text" id="filter_assigned_car" class="filter-input trip-filter" placeholder="Номер призначеного авто">
+                <button onclick="balanceFleet()" class="action-btn" style="margin-left: auto; background-color: #ff9800;">⚖️ Баланс Пн (Ідеал)</button>
+
+
+                <button onclick="runAutoAssignment()" class="action-btn" style="margin-left: auto;">🚀 Авто-призначення</button>
+                <button onclick="exportToExcel()" class="action-btn" style="background-color: #28a745;">💾 Зберегти</button>
+            </div>
+
+            <div class="table-container clusterize-scroll" id="scrollArea">
+                <table id="main_table">
+                    <thead>
+                        <tr>
+                            <th style="width: 80px;">Авто</th>
+                            <th class="col-short">GRF</th>
+                            <th class="col-med">Тип</th>
+                            <th class="col-med">Тип авто</th> 
+                            <th class="col-long">Маршрут</th>
+                            <th class="col-med">Відправник</th>
+                            <th class="col-med">Отримувач</th>
+                            <th class="col-day">Пн</th>
+                            <th class="col-day">Вт</th>
+                            <th class="col-day">Ср</th>
+                            <th class="col-day">Чт</th>
+                            <th class="col-day">Пт</th>
+                            <th class="col-day">Сб</th>
+                            <th class="col-day">Нд</th>
+                            
+                            <th class="col-short">Подача</th>
+                            <th class="col-short">Виїзд</th>
+                            <th class="col-short">Приїзд</th>
+                            <th class="col-short">Вільний</th>
+                            
+                            <th>Дії</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table_body" class="clusterize-content"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="teleport_modal" class="modal">
+        <div class="modal-content">
+            <h3>🚀 Телепортація ТЗ</h3>
+            <p id="tp_car_name"></p>
+            <label>Цільовий вузол:</label>
+            <input type="text" id="tp_node">
+            <label>Час у дорозі (хв):</label>
+            <input type="number" id="tp_time" value="120">
+            <div style="margin-top:15px; display:flex; gap:10px;">
+                <button onclick="confirmTeleport()" class="action-btn">Підтвердити</button>
+                <button onclick="closeModal()" class="danger-btn">Скасувати</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

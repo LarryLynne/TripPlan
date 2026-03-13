@@ -1,0 +1,287 @@
+:root {
+    --primary: #1a73e8;
+    --green: #28a745;
+    --border: #ccc;
+}
+
+body {
+    margin: 0; 
+    font-family: sans-serif; 
+    font-size: 12px;
+    height: 100vh; 
+    display: flex; 
+    flex-direction: column;
+}
+
+/* --- Верхня панель та контролі --- */
+.top-panel {
+    display: flex; 
+    gap: 15px; 
+    padding: 10px; 
+    background: #fff; 
+    border-bottom: 1px solid var(--border); 
+    align-items: center;
+}
+
+.control-group { 
+    display: flex; 
+    align-items: center; 
+    gap: 5px; 
+}
+
+.status-msg { 
+    margin-left: auto; 
+    color: #666; 
+    font-style: italic; 
+}
+
+.drop-zone {
+    border: 2px dashed var(--primary); 
+    padding: 5px 15px; 
+    border-radius: 5px; 
+    cursor: pointer; 
+    font-weight: bold;
+}
+
+.drop-zone.green { 
+    border-color: var(--green); 
+    color: var(--green); 
+}
+
+/* Фільтри */
+.filter-input {
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    outline: none;
+    font-size: 12px;
+}
+
+.filter-input:focus { 
+    border-color: var(--primary); 
+    box-shadow: 0 0 0 2px rgba(26,115,232,0.2); 
+}
+
+.global-filter { width: 200px; }
+
+/* --- Основний макет --- */
+.main-layout {
+    display: flex; 
+    flex: 1; 
+    overflow: hidden; 
+    background: #f0f2f5;
+}
+
+/* --- Ліва панель (Машини) --- */
+.side-panel {
+    width: 280px; 
+    background: #fff; 
+    border-right: 1px solid var(--border); 
+    display: flex; 
+    flex-direction: column;
+}
+
+.panel-header { 
+    padding: 10px; 
+    background: #f8f9fa; 
+    border-bottom: 1px solid #eee; 
+}
+
+.vehicle-container { 
+    flex: 1; 
+    overflow-y: auto; 
+    padding: 10px; 
+}
+
+.vehicle-card {
+    background: #fff; 
+    border: 1px solid #ddd; 
+    border-radius: 6px; 
+    padding: 10px; 
+    margin-bottom: 10px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05); 
+    cursor: grab;
+}
+
+.vehicle-card:active { 
+    cursor: grabbing; 
+}
+
+.vehicle-info { 
+    font-size: 11px; 
+    margin-top: 5px; 
+    color: #555; 
+}
+
+.badge { 
+    background: #e8f0fe; 
+    color: var(--primary); 
+    padding: 2px 6px; 
+    border-radius: 4px; 
+    font-size: 10px; 
+}
+
+.badge-bdf {
+    background: #d1face; /* Світло-фіолетовий фон */
+    color: #58c128;      /* Насичений фіолетовий текст */
+    font-weight: bold;
+}
+
+.tp-btn { 
+    margin-top: 8px; 
+    width: 100%; 
+    border: 1px solid #ddd; 
+    background: #fff; 
+    cursor: pointer; 
+    border-radius: 3px; 
+}
+
+.tp-btn:hover { 
+    background: #f1f3f4; 
+}
+
+/* --- Права панель (Робоча область) --- */
+.workspace { 
+    flex: 1; 
+    display: flex; 
+    flex-direction: column; 
+    overflow: hidden; 
+    background: #fff; 
+}
+
+/* Панель фільтрів графіків */
+.filter-bar {
+    display: flex;
+    gap: 10px;
+    padding: 10px;
+    background: #f8f9fa;
+    border-bottom: 1px solid var(--border);
+    align-items: center;
+    flex-wrap: wrap; /* Дозволяє переносити на новий рядок, якщо екран вузький */
+}
+
+/* --- Таблиця --- */
+.table-container { 
+    flex: 1; 
+    background: #fff; 
+    overflow-y: auto; 
+    max-height: none !important; 
+}
+
+table { 
+    width: 100%; 
+    border-collapse: collapse; 
+    table-layout: fixed; 
+}
+
+th, td { 
+    border: 1px solid #eee; 
+    padding: 6px 4px; 
+    text-overflow: ellipsis; 
+    overflow: hidden; 
+    white-space: nowrap; 
+}
+
+th { 
+    background: #fff59d; 
+    position: sticky; 
+    top: 0; 
+    z-index: 1; 
+    text-align: left; 
+}
+
+/* Розміри колонок */
+.col-short { width: 60px; }
+.col-med { width: 110px; }
+.col-long { width: 220px; }
+.col-day { width: 35px; text-align: center; }
+.time-cell { text-align: center; width: 60px; }
+
+.row-assigned { background: #eaffea !important; }
+.car-cell { font-weight: bold; color: var(--green); text-align: center; }
+
+/* --- Кнопки --- */
+.mini-btn {
+    padding: 2px 6px; 
+    cursor: pointer; 
+    border: 1px solid var(--border); 
+    border-radius: 3px; 
+    background: #fff; 
+    font-size: 12px;
+}
+
+.mini-btn:hover { 
+    background: #eee; 
+}
+
+.action-btn { 
+    background: var(--primary); 
+    color: #fff; 
+    border: none; 
+    padding: 8px 15px; 
+    border-radius: 4px; 
+    cursor: pointer; 
+    font-weight: bold; 
+}
+
+.action-btn:hover { 
+    background: #1557b0; 
+}
+
+.danger-btn { 
+    background: #dc3545; 
+    color: #fff; 
+    border: none; 
+    padding: 8px 15px; 
+    border-radius: 4px; 
+    cursor: pointer; 
+    font-weight: bold; 
+}
+
+.danger-btn:hover { 
+    background: #c82333; 
+}
+
+/* --- Модалка --- */
+.modal {
+    position: fixed; 
+    top: 0; 
+    left: 0; 
+    width: 100%; 
+    height: 100%;
+    background: rgba(0,0,0,0.5); 
+    display: none; 
+    justify-content: center; 
+    align-items: center; 
+    z-index: 1000;
+}
+
+.modal-content { 
+    background: #fff; 
+    padding: 20px; 
+    border-radius: 8px; 
+    width: 300px; 
+    display: flex; 
+    flex-direction: column; 
+}
+
+.modal-content input { 
+    margin-bottom: 10px; 
+    padding: 8px; 
+    border: 1px solid #ccc; 
+    border-radius: 4px; 
+}
+
+.empty-msg { 
+    padding: 20px; 
+    text-align: center; 
+    color: #777; 
+    font-style: italic; 
+}
+
+/* Підсвічування рядка при перетягуванні авто */
+.drag-highlight {
+    background-color: #e3f2fd !important; /* Ніжно-блакитний фон */
+    outline: 2px dashed var(--primary); /* Синій пунктир по контуру */
+    outline-offset: -2px;
+}
