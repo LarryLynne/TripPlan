@@ -148,15 +148,42 @@ async function handleFile(file, type) {
         applyFilters();
     } else {
         window.allVehicles = rows.slice(1).filter(r => r[0]).map(r => {
-            const initTime = parseExcelTime(r[2]); // Зберігаємо час
+            const initTime = parseExcelTime(r[2]); // Залишаємо математику для розрахунків
+            
+            // Робимо точне відображення дати без прив'язки до поточного тижня
+            let rawText = "---";
+            if (typeof r[2] === 'number') {
+                if (r[2] < 1) {
+                    // Якщо вказано тільки час (наприклад, 0.5 = 12:00)
+                    rawText = formatMinToWeekTime(initTime);
+                } else {
+                    // Якщо вказана повноцінна дата, витягуємо її напряму
+                    // Excel рахує дні з 1900 року, 25569 - це різниця до 1970 року (Unix Epoch)
+                    const jsDate = new Date(Math.round((r[2] - 25569) * 86400 * 1000));
+                    const days = ['Нд', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+                    
+                    const dd = String(jsDate.getUTCDate()).padStart(2, '0');
+                    const mm = String(jsDate.getUTCMonth() + 1).padStart(2, '0');
+                    const dayStr = days[jsDate.getUTCDay()];
+                    const hh = String(jsDate.getUTCHours()).padStart(2, '0');
+                    const min = String(jsDate.getUTCMinutes()).padStart(2, '0');
+                    
+                    rawText = `${dd}.${mm} (${dayStr}) ${hh}:${min}`;
+                }
+            } else if (r[2] !== undefined) {
+                rawText = String(r[2]);
+            }
+
             return {
                 number: String(r[0]),
                 type: String(r[1]),
-                availableTime: initTime,
+                availableTime: initTime, 
+                displayTime: rawText, 
                 node: String(r[3]).trim(),
                 city: r[5],
                 originalNode: String(r[3]).trim(),
-                originalTime: initTime // <-- ДОДАЛИ ЦЕЙ РЯДОК
+                originalTime: initTime, 
+                originalDisplayTime: rawText 
             };
         });
         applyFilters();
@@ -164,28 +191,47 @@ async function handleFile(file, type) {
 }
 
 function parseExcelTime(val) {
-    if (typeof val === 'string') {
-        const days = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'];
-        let d = 0;
-        days.forEach((day, idx) => { if (val.includes(day)) d = idx; });
-        const timeMatch = val.match(/(\d{1,2}):(\d{2})/);
-        if (timeMatch) {
-            return d * 1440 + parseInt(timeMatch[1]) * 60 + parseInt(timeMatch[2]);
-        }
-        return 0;
-    }
     if (typeof val === 'number') {
         if (val < 1) {
             return Math.round(val * 1440);
         } else {
-            let daysSince1900 = Math.floor(val);
-            let dayOfWeek = (daysSince1900 - 2) % 7; 
-            if (dayOfWeek < 0) dayOfWeek += 7; 
-            let timeFraction = val - daysSince1900;
-            let mins = Math.round(timeFraction * 1440);
-            return (dayOfWeek * 1440) + mins;
+            // Дістаємо дату машини з Excel
+            let jsDateUTC = new Date(Math.round((val - 25569) * 86400 * 1000));
+            let localExcelDate = new Date(
+                jsDateUTC.getUTCFullYear(),
+                jsDateUTC.getUTCMonth(),
+                jsDateUTC.getUTCDate(),
+                jsDateUTC.getUTCHours(),
+                jsDateUTC.getUTCMinutes()
+            );
+
+            // Беремо стартовий понеділок З НАШОГО ПОЛЯ
+            let baseMonday = getBaseMonday();
+            
+            // Рахуємо різницю в хвилинах
+            let timeDiffMins = Math.floor((localExcelDate - baseMonday) / 60000);
+            
+            // Якщо машина звільнилася ДО початку планування (наприклад, у неділю), 
+            // для графіка вона готова з нульової хвилини понеділка
+            if (timeDiffMins <= 0) {
+                return 0; 
+            }
+            
+            return timeDiffMins;
         }
     }
+
+    if (typeof val === 'string') {
+        const days = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'];
+        let d = 0;
+        days.forEach((day, idx) => { if (val.includes(day)) d = idx; });
+        
+        const timeMatch = val.match(/(\d{1,2}):(\d{2})/);
+        if (timeMatch) {
+            return d * 1440 + parseInt(timeMatch[1]) * 60 + parseInt(timeMatch[2]);
+        }
+    }
+
     return 0;
 }
 
@@ -305,7 +351,7 @@ function renderVehicles() {
                 <span class="${badgeClass}">${v.type}</span>
             </div>
             <div class="vehicle-info">
-                📍 <span>${v.node}</span> | 🕒 <span>${formatMinToWeekTime(v.availableTime)}</span>
+                📍 <span>${v.node}</span> | 🕒 <span>${v.displayTime}</span>
             </div>
             <button class="tp-btn" onclick="openTeleport('${v.number}')">🚀 Телепорт</button>
         </div>
@@ -314,13 +360,26 @@ function renderVehicles() {
 }
 
 // Знаходимо понеділок поточного тижня як точку відліку
-function getBaseMonday() {
+const dateInput = document.getElementById('plan_start_date');
+
+function initStartDate() {
     const now = new Date();
     const day = now.getDay();
     const diff = now.getDate() - day + (day === 0 ? -6 : 1);
     const monday = new Date(now.setDate(diff));
-    monday.setHours(0, 0, 0, 0);
-    return monday;
+    
+    // Форматуємо для поля <input type="date"> (РРРР-ММ-ДД)
+    const yyyy = monday.getFullYear();
+    const mm = String(monday.getMonth() + 1).padStart(2, '0');
+    const dd = String(monday.getDate()).padStart(2, '0');
+    dateInput.value = `${yyyy}-${mm}-${dd}`;
+}
+initStartDate();
+
+// Функція для отримання обраного понеділка з поля
+function getBaseMonday() {
+    const parts = dateInput.value.split('-');
+    return new Date(parts[0], parts[1] - 1, parts[2]);
 }
 const baseMonday = getBaseMonday();
 
@@ -331,9 +390,14 @@ function formatMinToWeekTime(totalMin) {
     const h = Math.floor((totalMin % 1440) / 60);
     const m = totalMin % 60;
     
-    // Вираховуємо дату
-    const targetDate = new Date(baseMonday);
-    targetDate.setDate(baseMonday.getDate() + d);
+    // 1. Отримуємо наш стартовий понеділок З ПОЛЯ НА ЕКРАНІ
+    const startMonday = getBaseMonday();
+    
+    // 2. Додаємо до нього кількість днів (d), яка пройшла від початку тижня
+    const targetDate = new Date(startMonday);
+    targetDate.setDate(startMonday.getDate() + d);
+    
+    // Форматуємо
     const dd = String(targetDate.getDate()).padStart(2, '0');
     const mm = String(targetDate.getMonth() + 1).padStart(2, '0');
     
@@ -375,7 +439,7 @@ function assignCar(vNumber, tripId) {
 
     // Мягкая проверка типа авто
     if (car.type !== trip.auto) {
-        const confirmChange = confirm(`Тип ТЗ не совпадает! \nПлан: ${trip.auto}\nФакт: ${car.type}\n\nНазначить все равно?`);
+        const confirmChange = confirm(`Тип ТЗ не співпадає! \nПлан: ${trip.auto}\nФакт: ${car.type}\n\nПризначити все одно?`);
         if (!confirmChange) return;
     }
 
@@ -383,9 +447,10 @@ function assignCar(vNumber, tripId) {
     if (car.availableTime > trip.trueStart) return alert("❌ Машина ще не звільниться до моменту подачі!");
 
     trip.assignedCar = car.number;
-    trip.assignedCarType = car.type; // Сохраняем фактический тип в объект рейса
+    trip.assignedCarType = car.type; // Убеждаемся, что тип сохраняется в рейс
     car.node = trip.destination;
     car.availableTime = trip.freeInt;
+    car.displayTime = formatMinToWeekTime(trip.freeInt);
 
     applyFilters();
 }
@@ -456,6 +521,7 @@ function confirmTeleport() {
     // 6. Оновлюємо поточний стан самої машини
     car.node = targetNode;
     car.availableTime = endTime;
+    car.displayTime = formatMinToWeekTime(endTime);
     
     closeModal();
     
@@ -479,7 +545,9 @@ function render(trips) {
             <td>${t.grf}</td>
             <td>${t.type || '---'}</td> 
             <td>${t.auto || '---'}</td> 
-            <td style="color: #1a73e8; font-weight: bold;">${t.assignedCar ? t.assignedCarType : '---'}</td>
+            <td style="color: #1a73e8; font-weight: bold;">
+                ${t.assignedCar ? (t.assignedCarType || window.allVehicles.find(v => v.number === t.assignedCar)?.type || '---') : '---'}
+            </td>
             <td title="${t.route}">${t.route}</td> 
             <td>${t.origin}</td>
             <td>${t.destination}</td>
@@ -558,10 +626,12 @@ function unassign(tripId) {
             const prevTrip = carTrips[targetIndex - 1];
             car.node = prevTrip.destination;
             car.availableTime = prevTrip.freeInt;
+            car.displayTime = formatMinToWeekTime(prevTrip.freeInt);
         } else {
             // Якщо це був самий перший рейс, скидаємо до початкового стану з файлу
             car.node = car.originalNode;
             car.availableTime = car.originalTime;
+            car.displayTime = car.originalDisplayTime;
         }
     }
 
@@ -598,6 +668,10 @@ async function runAutoAssignment() {
                 bestCar.node = trip.destination;
                 bestCar.availableTime = trip.freeInt;
                 
+                // --- ДОДАЙ ОСЬ ЦЕЙ РЯДОК ---
+                bestCar.displayTime = formatMinToWeekTime(trip.freeInt); 
+                // ---------------------------
+
                 assignedInThisIteration++;
                 totalCount++;
             }
@@ -624,6 +698,7 @@ function cancelAllAssignments() {
     window.allVehicles.forEach(v => {
         v.node = v.originalNode;
         v.availableTime = v.originalTime;
+        v.displayTime = v.originalDisplayTime;
     });
 
     applyFilters();
