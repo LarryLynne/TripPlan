@@ -33,48 +33,86 @@ document.getElementById('filter_car_number').addEventListener('input', applyFilt
 document.querySelectorAll('.trip-filter').forEach(el => el.addEventListener('input', applyFilters));
 document.querySelectorAll('.trip-filter').forEach(el => el.addEventListener('change', applyFilters));
 
+
+// Кастомний Alert (тільки кнопка ОК)
+window.customAlert = function(message, title = "ℹ️ Інформація") {
+    return new Promise(resolve => {
+        document.getElementById('dialog_title').innerText = title;
+        document.getElementById('dialog_message').innerText = message;
+        document.getElementById('btn_dialog_cancel').style.display = 'none'; // Ховаємо кнопку скасування
+        document.getElementById('custom_dialog_modal').style.display = 'flex';
+
+        document.getElementById('btn_dialog_ok').onclick = () => {
+            document.getElementById('custom_dialog_modal').style.display = 'none';
+            resolve(true);
+        };
+    });
+};
+
+// Кастомний Confirm (кнопки ОК та Скасувати)
+window.customConfirm = function(message, title = "❓ Підтвердження") {
+    return new Promise(resolve => {
+        document.getElementById('dialog_title').innerText = title;
+        document.getElementById('dialog_message').innerText = message;
+        document.getElementById('btn_dialog_cancel').style.display = 'block'; // Показуємо скасування
+        document.getElementById('custom_dialog_modal').style.display = 'flex';
+
+        document.getElementById('btn_dialog_ok').onclick = () => {
+            document.getElementById('custom_dialog_modal').style.display = 'none';
+            resolve(true);
+        };
+        document.getElementById('btn_dialog_cancel').onclick = () => {
+            document.getElementById('custom_dialog_modal').style.display = 'none';
+            resolve(false);
+        };
+    });
+};
+
 // Універсальна функція застосування фільтрів
 function applyFilters() {
     // Зчитуємо вузли графіків
     const elTripNode = document.getElementById('node_filter_trips') || document.getElementById('node_filter');
-    const tripNodeFilter = elTripNode ? elTripNode.value.trim().toLowerCase() : "";
+    const tripNodeFilter = elTripNode ? elTripNode.value : "";
     
     // Зчитуємо фільтри МАШИН
     const elCarNode = document.getElementById('node_filter_cars');
     const elCarNum = document.getElementById('filter_car_number');
-    const elCarType = document.getElementById('filter_car_type'); // Зчитуємо нове поле
+    const elCarType = document.getElementById('filter_car_type'); 
 
-    const carNodeFilter = elCarNode ? elCarNode.value.trim().toLowerCase() : "";
-    const carNumberFilter = elCarNum ? elCarNum.value.trim().toLowerCase() : "";
-    const carTypeFilter = elCarType ? elCarType.value.trim().toLowerCase() : ""; // Отримуємо значення
+    const carNodeFilter = elCarNode ? elCarNode.value : "";
+    const carNumberFilter = elCarNum ? elCarNum.value : "";
+    const carTypeFilter = elCarType ? elCarType.value : ""; 
     
     // Зчитуємо інші фільтри графіків
     const dayFilter = document.getElementById('filter_day') ? document.getElementById('filter_day').value : "";
     const statusFilter = document.getElementById('filter_status') ? document.getElementById('filter_status').value : "";
-    const autoTypeFilter = document.getElementById('filter_auto_type') ? document.getElementById('filter_auto_type').value.trim().toLowerCase() : "";
-    const tripTypeFilter = document.getElementById('filter_trip_type') ? document.getElementById('filter_trip_type').value.trim().toLowerCase() : "";
-    const assignedCarFilter = document.getElementById('filter_assigned_car') ? document.getElementById('filter_assigned_car').value.trim().toLowerCase() : "";
-    const destFilter = document.getElementById('filter_destination') ? document.getElementById('filter_destination').value.trim().toLowerCase() : "";
+    const autoTypeFilter = document.getElementById('filter_auto_type') ? document.getElementById('filter_auto_type').value : "";
+    const tripTypeFilter = document.getElementById('filter_trip_type') ? document.getElementById('filter_trip_type').value : "";
+    const assignedCarFilter = document.getElementById('filter_assigned_car') ? document.getElementById('filter_assigned_car').value : "";
+    const destFilter = document.getElementById('filter_destination') ? document.getElementById('filter_destination').value : "";
 
-    // 1. Фільтруємо графіки
+    // 1. Фільтруємо графіки (використовуємо multiMatch)
     window.currentFilteredTrips = window.allTrips.filter(t => {
-        if (tripNodeFilter && !t.origin.toLowerCase().includes(tripNodeFilter)) return false;
-        if (destFilter && !t.destination.toLowerCase().includes(destFilter)) return false;
+        if (!multiMatch(t.origin, tripNodeFilter)) return false;
+        if (!multiMatch(t.destination, destFilter)) return false;
+        
+        // Випадаючі списки залишаємо як є
         if (dayFilter !== "" && t.logDays[parseInt(dayFilter)] !== '+') return false;
         if (statusFilter === 'with_auto' && !t.assignedCar) return false;
         if (statusFilter === 'without_auto' && t.assignedCar) return false;
-        if (autoTypeFilter && !(t.auto || "").toLowerCase().includes(autoTypeFilter)) return false;
-        if (tripTypeFilter && !(t.type || "").toLowerCase().includes(tripTypeFilter)) return false;
-        if (assignedCarFilter && !(t.assignedCar || "").toLowerCase().includes(assignedCarFilter)) return false;
+        
+        if (!multiMatch(t.auto, autoTypeFilter)) return false;
+        if (!multiMatch(t.type, tripTypeFilter)) return false;
+        if (!multiMatch(t.assignedCar, assignedCarFilter)) return false;
+        
         return true; 
     });
 
-    // 2. Фільтруємо машини (ТУТ ДОДАНО ПЕРЕВІРКУ ТИПУ)
+    // 2. Фільтруємо машини (використовуємо multiMatch)
     window.currentFilteredVehicles = window.allVehicles.filter(v => {
-        if (carNodeFilter && !v.node.toLowerCase().includes(carNodeFilter)) return false;
-        if (carNumberFilter && !v.number.toLowerCase().includes(carNumberFilter)) return false;
-        // Перевіряємо збіг за типом ТЗ
-        if (carTypeFilter && !v.type.toLowerCase().includes(carTypeFilter)) return false;
+        if (!multiMatch(v.node, carNodeFilter)) return false;
+        if (!multiMatch(v.number, carNumberFilter)) return false;
+        if (!multiMatch(v.type, carTypeFilter)) return false;
         return true;
     });
 
@@ -292,28 +330,51 @@ class Trip {
     }
 
     calculateTimeline() {
-        const minInDay = 1440; const minInWeek = 10080;
-        const dayStart = this.dayIndex * minInDay;
+        const minInDay = 1440;
+        
+        // Базовый астрономический день
+        let actualAstroDay = this.dayIndex;
+        
+        // Корректируем смещение недель:
+        // Если логистический Вс (6), а астро Пн (0) -> разница -6. Это Пн следующей недели!
+        if (actualAstroDay - this.logisticDay < -3) {
+            actualAstroDay += 7;
+        } 
+        // Если логистический Пн (0), а астро Вс (6) -> разница +6. Это Вс предыдущей недели!
+        else if (actualAstroDay - this.logisticDay > 3) {
+            actualAstroDay -= 7;
+        }
+
+        const dayStart = actualAstroDay * minInDay; // Теперь стартуем с правильных суток
+
         const toMin = (str) => {
             if (!str) return 0;
             const [h, m] = str.split(':').map(Number);
             return (h * 60) + m;
         };
+
+        const pM = toMin(this.podachaStr);
         const dM = toMin(this.depStr);
+        const aM = toMin(this.arrStr);
+        const fM = toMin(this.freeStr);
+
+        // 1. Точка отсчета - выезд (departure)
         this.depInt = dayStart + dM;
-        let pM = toMin(this.podachaStr);
-        let pInt = dayStart + pM;
-        if (pM > dM) pInt -= minInDay;
-        this.podachaInt = pInt < 0 ? pInt + minInWeek : pInt;
-        let aM = toMin(this.arrStr);
-        let aInt = dayStart + aM;
-        if (aM < dM) aInt += minInDay;
-        this.arrInt = aInt >= minInWeek ? aInt - minInWeek : aInt;
-        let fM = toMin(this.freeStr);
-        let fInt = dayStart + fM;
-        if (fM < aM) fInt = aInt + (fM + minInDay - aM);
-        else if (aInt > (dayStart + minInDay)) fInt += minInDay;
-        this.freeInt = fInt >= minInWeek ? fInt - minInWeek : fInt;
+
+        // 2. Подача (podacha) - происходит ДО выезда. Считаем время ожидания/погрузки
+        let loadTime = dM - pM;
+        if (loadTime < 0) loadTime += minInDay; // Если погрузка началась до полуночи
+        this.podachaInt = this.depInt - loadTime;
+
+        // 3. Приезд (arrival) - происходит ПОСЛЕ выезда. Считаем время в пути
+        let transitTime = aM - dM;
+        if (transitTime < 0) transitTime += minInDay; // Если в пути пересекли полночь
+        this.arrInt = this.depInt + transitTime;
+
+        // 4. Освобождение (free) - происходит ПОСЛЕ приезда. Считаем время разгрузки
+        let unloadTime = fM - aM;
+        if (unloadTime < 0) unloadTime += minInDay; // Если разгрузка перешла за полночь
+        this.freeInt = this.arrInt + unloadTime;
     }
 }
 
@@ -385,23 +446,22 @@ const baseMonday = getBaseMonday();
 
 
 function formatMinToWeekTime(totalMin) {
-    const days = ['Пн','Вт','Ср','Чт','Пт','Сб','Нд'];
-    const d = Math.floor((totalMin % 10080) / 1440);
-    const h = Math.floor((totalMin % 1440) / 60);
-    const m = totalMin % 60;
+    const days = ['Нд', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб']; // Формат Date.getDay()
     
-    // 1. Отримуємо наш стартовий понеділок З ПОЛЯ НА ЕКРАНІ
+    // 1. Берем наш стартовый понедельник из поля на экране
     const startMonday = getBaseMonday();
     
-    // 2. Додаємо до нього кількість днів (d), яка пройшла від початку тижня
-    const targetDate = new Date(startMonday);
-    targetDate.setDate(startMonday.getDate() + d);
+    // 2. Превращаем минуты в миллисекунды и просто прибавляем к понедельнику
+    const targetDate = new Date(startMonday.getTime() + totalMin * 60000);
     
-    // Форматуємо
+    // 3. Достаем реальные данные
     const dd = String(targetDate.getDate()).padStart(2, '0');
     const mm = String(targetDate.getMonth() + 1).padStart(2, '0');
+    const dayStr = days[targetDate.getDay()];
+    const h = String(targetDate.getHours()).padStart(2, '0');
+    const m = String(targetDate.getMinutes()).padStart(2, '0');
     
-    return `${dd}.${mm} (${days[d]}) ${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}`;
+    return `${dd}.${mm} (${dayStr}) ${h}:${m}`;
 }
 
 // Drag & Drop
@@ -433,24 +493,45 @@ async function onDropOnTrip(e, tripId, row) {
     assignCar(vNumber, tripId);
 }
 
-function assignCar(vNumber, tripId) {
+async function assignCar(vNumber, tripId) {
     const car = window.allVehicles.find(v => v.number === vNumber);
     const trip = window.allTrips.find(t => t.id === tripId);
 
-    // Мягкая проверка типа авто
-    if (car.type !== trip.auto) {
-        const confirmChange = confirm(`Тип ТЗ не співпадає! \nПлан: ${trip.auto}\nФакт: ${car.type}\n\nПризначити все одно?`);
+    const bufferBdf = parseInt(document.getElementById('buffer_bdf').value) || 0;
+    const bufferOther = parseInt(document.getElementById('buffer_other').value) || 0;
+    
+    const isBDF = (car.type || "").toLowerCase().includes('бдф') || (car.type || "").toLowerCase().includes('bdf');
+    const requiredBuffer = isBDF ? bufferBdf : bufferOther;
+
+    if ((car.type || "").toLowerCase() !== (trip.auto || "").toLowerCase()) {
+        // НОВИЙ ДОБРИЙ CONFIRM
+        const confirmChange = await customConfirm(`Тип ТЗ не співпадає! \nПлан: ${trip.auto}\nФакт: ${car.type}\n\nПризначити все одно?`, "⚠️ Невідповідність типу");
         if (!confirmChange) return;
     }
 
-    if (car.node !== trip.origin) return alert(`❌ Машина на ${car.node}, а треба на ${trip.origin}`);
-    if (car.availableTime > trip.trueStart) return alert("❌ Машина ще не звільниться до моменту подачі!");
+    if ((car.node || "").toLowerCase() !== (trip.origin || "").toLowerCase()) {
+        // НОВИЙ ДОБРИЙ ALERT
+        await customAlert(`Машина на ${car.node}, а треба на ${trip.origin}`, "❌ Помилка вузла");
+        return;
+    }
+
+    const maxAllowedTime = trip.depInt - requiredBuffer; 
+
+    if (car.availableTime > maxAllowedTime) {
+        await customAlert(`Машина критично спізнюється!\n\nГотовність: ${formatMinToWeekTime(car.availableTime)}\nКрайній термін (Виїзд мінус ${requiredBuffer} хв): ${formatMinToWeekTime(maxAllowedTime)}\n\nПризначення неможливе.`, "🚫 Блокування");
+        return;
+    } 
+    else if (car.availableTime > trip.podachaInt) {
+        const forceAssign = await customConfirm(`Машина запізнюється на планову подачу!\n\nГотовність: ${formatMinToWeekTime(car.availableTime)}\nПодача за графіком: ${formatMinToWeekTime(trip.podachaInt)}\nВиїзд: ${formatMinToWeekTime(trip.depInt)}\n\nВона встигає лише до крайнього терміну (${formatMinToWeekTime(maxAllowedTime)}). Призначити примусово?`, "⏳ Запізнення");
+        if (!forceAssign) return;
+    }
 
     trip.assignedCar = car.number;
-    trip.assignedCarType = car.type; // Убеждаемся, что тип сохраняется в рейс
+    trip.assignedCarType = car.type; 
     car.node = trip.destination;
-    car.availableTime = trip.freeInt;
-    car.displayTime = formatMinToWeekTime(trip.freeInt);
+
+    car.availableTime = trip.arrInt + requiredBuffer;
+    car.displayTime = formatMinToWeekTime(car.availableTime);
 
     applyFilters();
 }
@@ -553,10 +634,10 @@ function render(trips) {
             <td>${t.destination}</td>
             ${t.logDays.map(d => `<td class="col-day">${d === '+' ? '+' : ''}</td>`).join('')}
             
-            <td class="time-cell">${t.podachaStr}</td>
-            <td class="time-cell">${t.depStr}</td>
-            <td class="time-cell">${t.arrStr}</td>
-            <td class="time-cell">${t.freeStr}</td>
+            <td class="time-cell" title="${formatMinToWeekTime(t.podachaInt)}">${t.podachaStr}</td>
+            <td class="time-cell" title="${formatMinToWeekTime(t.depInt)}">${t.depStr}</td>
+            <td class="time-cell" title="${formatMinToWeekTime(t.arrInt)}">${t.arrStr}</td>
+            <td class="time-cell" title="${formatMinToWeekTime(t.freeInt)}">${t.freeStr}</td>
             
             <td>
                 ${!isAssigned ? `<button onclick="quickAssign('${t.id}')" class="mini-btn">🚗</button>` : `<button onclick="unassign('${t.id}')" class="mini-btn">✕</button>`}
@@ -572,13 +653,13 @@ function render(trips) {
 }
 
 // Кнопки дій
-function quickAssign(tripId) {
+async function quickAssign(tripId) {
     const trip = window.allTrips.find(t => t.id === tripId);
     
     // Шукаємо ТІЛЬКИ серед відфільтрованих машин (currentFilteredVehicles)
     const candidates = window.currentFilteredVehicles.filter(v => 
-        v.type === trip.auto && 
-        v.node === trip.origin && 
+        (v.type || "").toLowerCase() === (trip.auto || "").toLowerCase() && 
+        (v.node || "").toLowerCase() === (trip.origin || "").toLowerCase() && 
         v.availableTime <= trip.trueStart // Важливо: перевіряємо по часу подачі!
     );
 
@@ -587,7 +668,7 @@ function quickAssign(tripId) {
         return;
     }
 
-    assignCar(candidates[0].number, tripId);
+    await assignCar(candidates[0].number, tripId);
 }
 
 // 2. Скасування призначення (з урахуванням ланцюжка та видаленням телепортів)
@@ -654,7 +735,11 @@ async function runAutoAssignment() {
             let minWait = Infinity;
 
             for (const car of window.currentFilteredVehicles) {
-                if (car.type === trip.auto && car.node === trip.origin && car.availableTime <= trip.trueStart) {
+                // Сравниваем тип и узел без учета регистра
+                if ((car.type || "").toLowerCase() === (trip.auto || "").toLowerCase() && 
+                    (car.node || "").toLowerCase() === (trip.origin || "").toLowerCase() && 
+                    car.availableTime <= trip.trueStart) {
+                    
                     let wait = trip.trueStart - car.availableTime;
                     if (wait < minWait) {
                         minWait = wait;
@@ -679,12 +764,74 @@ async function runAutoAssignment() {
     } while (assignedInThisIteration > 0);
 
     applyFilters();
-    alert(`Автоматично призначено ${totalCount} рейсів.`);
+    await customAlert(`Автоматично призначено ${totalCount} рейсів.`);
+    //alert(`Автоматично призначено ${totalCount} рейсів.`);
+}
+
+async function runAutoAssignmentByDeparture() {
+    const bufferBdf = parseInt(document.getElementById('buffer_bdf').value) || 0;
+    const bufferOther = parseInt(document.getElementById('buffer_other').value) || 0;
+    
+    let totalCount = 0;
+    let assignedInThisIteration;
+
+    do {
+        assignedInThisIteration = 0;
+        const sortedTrips = [...window.currentFilteredTrips].sort((a, b) => a.depInt - b.depInt);
+
+        for (const trip of sortedTrips) {
+            if (trip.assignedCar) continue;
+
+            let bestCar = null;
+            let minWait = Infinity;
+
+            for (const car of window.currentFilteredVehicles) {
+                if ((car.type || "").toLowerCase() === (trip.auto || "").toLowerCase() && 
+                    (car.node || "").toLowerCase() === (trip.origin || "").toLowerCase()) {
+                    
+                    // Визначаємо необхідний буфер залежно від типу авто
+                    const isBDF = (car.type || "").toLowerCase().includes('бдф') || (car.type || "").toLowerCase().includes('bdf');
+                    const requiredBuffer = isBDF ? bufferBdf : bufferOther;
+                    
+                    // УМОВА 1: Готовність машини + хвилини <= Час виїзду
+                    if (car.availableTime + requiredBuffer <= trip.depInt) {
+                        let wait = trip.depInt - (car.availableTime + requiredBuffer);
+                        if (wait < minWait) {
+                            minWait = wait;
+                            bestCar = car;
+                        }
+                    }
+                }
+            }
+
+            if (bestCar) {
+                // Призначаємо машину
+                trip.assignedCar = bestCar.number;
+                trip.assignedCarType = bestCar.type; // Фіксуємо факт типу
+                bestCar.node = trip.destination;
+                
+                // Знову перевіряємо тип обраної машини для буферу після рейсу
+                const isBDF = (bestCar.type || "").toLowerCase().includes('бдф') || (bestCar.type || "").toLowerCase().includes('bdf');
+                const requiredBuffer = isBDF ? bufferBdf : bufferOther;
+
+                // УМОВА 2: Нова готовність = Приїзд + хвилини на розвантаження
+                bestCar.availableTime = trip.arrInt + requiredBuffer;
+                bestCar.displayTime = formatMinToWeekTime(bestCar.availableTime); 
+                
+                assignedInThisIteration++;
+                totalCount++;
+            }
+        }
+    } while (assignedInThisIteration > 0);
+
+    applyFilters();
+    //alert(`Автоматично призначено ${totalCount} рейсів!\n(Новий час готовності розраховано за схемою: Приїзд + буфер)`);
+    await customAlert(`Автоматично призначено ${totalCount} рейсів!\n(Новий час готовності розраховано за схемою: Приїзд + буфер)`);
 }
 
 // Нова функція: повне скасування всіх призначень
-function cancelAllAssignments() {
-    if (!confirm("Ви впевнені, що хочете скасувати ВСІ призначення та видалити створені телепорти?")) return;
+async function cancelAllAssignments() {
+    if (!(await customConfirm("Ви впевнені, що хочете скасувати ВСІ призначення та видалити створені телепорти?", "Скидання"))) return;
 
     // 1. Очищаємо графіки
     window.allTrips.forEach(t => {
@@ -702,7 +849,7 @@ function cancelAllAssignments() {
     });
 
     applyFilters();
-    alert("Всі призначення успішно скасовано!");
+    await customAlert("Всі призначення успішно скасовано!", "✅ Готово");
 }
 
 function balanceFleet() {
@@ -843,4 +990,20 @@ function exportToExcel() {
     
     // Запускаємо скачування
     XLSX.writeFile(wb, `Dispatcher_Result_${dateStr}.xlsx`);
+}
+
+function multiMatch(targetValue, filterString) {
+    if (!filterString) return true; // Якщо фільтр пустий, пропускаємо (все ок)
+    
+    const target = String(targetValue || "").toLowerCase();
+    
+    // Розбиваємо рядок фільтра по комі, прибираємо зайві пробіли і порожні шматки
+    const parts = filterString.split(',')
+                              .map(s => s.trim().toLowerCase())
+                              .filter(s => s.length > 0);
+    
+    if (parts.length === 0) return true;
+    
+    // Перевіряємо, чи є хоча б один збіг
+    return parts.some(part => target.includes(part));
 }

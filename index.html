@@ -23,7 +23,19 @@
     <input type="file" id="file_input" style="display:none" accept=".xlsx">
     <input type="file" id="cars_input" style="display:none" accept=".xlsx">
 
-    <button onclick="balanceFleet()" class="action-btn" style="margin-left: auto; background-color: #ff9800;">⚖️ Баланс Пн (Ідеал)</button>
+    <button onclick="balanceFleet()" class="action-btn" style="margin-left: auto; background-color: #ff9800;">⚖️ Баланс Пн</button>
+    <div class="control-group" style="margin-left: 15px; border-left: 1px solid #ccc; padding-left: 15px;">
+        <label style="font-size: 11px; color: #555;" title="Час на перечеплення БДФ">Зазор БДФ (хв):</label>
+        <input type="number" id="buffer_bdf" class="filter-input" value="15" style="width: 50px; padding: 4px;">
+        
+        <label style="font-size: 11px; color: #555; margin-left: 5px;" title="Час на завантаження інших авто">Зазор інші (хв):</label>
+        <input type="number" id="buffer_other" class="filter-input" value="60" style="width: 50px; padding: 4px;">
+    </div>
+
+    <button onclick="runAutoAssignmentByDeparture()" class="action-btn" style="margin-left: 15px; background-color: #17a2b8;">🚀 Авто (Виїзд)</button>
+
+
+    
     <button onclick="runAutoAssignment()" class="action-btn" style="margin-left: auto;">🚀 Авто-призначення</button>
     <button onclick="cancelAllAssignments()" class="danger-btn">❌ Скинути всі</button>
     <button onclick="exportToExcel()" class="action-btn" style="background-color: #28a745;">💾 Зберегти</button>
@@ -37,7 +49,7 @@
             <div class="panel-header">
         <div style="margin-bottom: 8px;">🚛 Транспортні засоби</div>
         
-        <input type="text" id="filter_car_number" class="filter-input car-filter" placeholder="🔍 Пошук за номером авто" style="width: 100%; box-sizing: border-box; margin-bottom: 8px;">
+        <input type="text" id="filter_car_number" class="filter-input car-filter" placeholder="🔍 Номер ТЗ" style="width: 100%; box-sizing: border-box; margin-bottom: 8px;">
         
         <input type="text" id="node_filter_cars" class="filter-input car-filter" placeholder="📍 Місцезнаходження авто" style="width: 100%; box-sizing: border-box;">
         <input type="text" id="filter_car_type" class="filter-input car-filter" placeholder="🚛 Тип ТЗ" style="width: 100%; box-sizing: border-box;">
@@ -66,11 +78,11 @@
                     <option value="without_auto">Без авто</option>
                 </select>
 
-                <input type="text" id="filter_auto_type" class="filter-input trip-filter" placeholder="Тип авто (напр. BDF)">
+                <input type="text" id="filter_auto_type" class="filter-input trip-filter" placeholder="Тип ТЗ">
                 <input type="text" id="filter_trip_type" class="filter-input trip-filter" placeholder="Тип рейсу">
                 <input type="text" id="node_filter_trips" class="filter-input trip-filter" placeholder="Відправник">
                 <input type="text" id="filter_destination" class="filter-input trip-filter" placeholder="Отримувач">
-                <input type="text" id="filter_assigned_car" class="filter-input trip-filter" placeholder="Номер призначеного авто">
+                <input type="text" id="filter_assigned_car" class="filter-input trip-filter" placeholder="Номер ТЗ">
                 
                 
             </div>
@@ -120,6 +132,17 @@
             <div style="margin-top:15px; display:flex; gap:10px;">
                 <button onclick="confirmTeleport()" class="action-btn">Підтвердити</button>
                 <button onclick="closeModal()" class="danger-btn">Скасувати</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="custom_dialog_modal" class="modal" style="z-index: 9999;">
+        <div class="modal-content" style="width: 350px;">
+            <h3 id="dialog_title" style="margin-top: 0; color: #1a73e8;">Повідомлення</h3>
+            <p id="dialog_message" style="white-space: pre-wrap; color: #444; line-height: 1.5; font-size: 13px;"></p>
+            <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: flex-end;">
+                <button id="btn_dialog_cancel" class="danger-btn" style="display: none; padding: 6px 12px;">Скасувати</button>
+                <button id="btn_dialog_ok" class="action-btn" style="padding: 6px 12px;">ОК</button>
             </div>
         </div>
     </div>
