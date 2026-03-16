@@ -12,26 +12,31 @@
 <body>
 
     <div class="top-panel">
-        <div id="drop_zone" class="drop-zone">📂 Графіки</div>
-        <div id="drop_zone_cars" class="drop-zone green">🚗 Тачки</div>
-        
-        <input type="file" id="file_input" style="display:none" accept=".xlsx">
-        <input type="file" id="cars_input" style="display:none" accept=".xlsx">
+    <div id="drop_zone" class="drop-zone">📂 Графіки</div>
+    <div id="drop_zone_cars" class="drop-zone green">🚗 Тачки</div>
+    
+    <input type="file" id="file_input" style="display:none" accept=".xlsx">
+    <input type="file" id="cars_input" style="display:none" accept=".xlsx">
 
-        <div class="control-group" style="margin-left: 20px;">
-            <label for="node_filter" style="font-weight: bold; color: #555;">📍 Вузол:</label>
-            <input type="text" id="node_filter" class="filter-input global-filter" placeholder="Наприклад, Kv-ESTc">
-        </div>
+    <button onclick="balanceFleet()" class="action-btn" style="margin-left: auto; background-color: #ff9800;">⚖️ Баланс Пн (Ідеал)</button>
+    <button onclick="runAutoAssignment()" class="action-btn" style="margin-left: auto;">🚀 Авто-призначення</button>
+    <button onclick="cancelAllAssignments()" class="danger-btn">❌ Скинути всі</button>
+    <button onclick="exportToExcel()" class="action-btn" style="background-color: #28a745;">💾 Зберегти</button>
 
-        
-    </div>
+
+   
+</div>
 
     <div class="main-layout">
         <div class="side-panel">
             <div class="panel-header">
-                <div style="margin-bottom: 8px;">🚛 Транспортні засоби</div>
-                <input type="text" id="filter_car_number" class="filter-input car-filter" placeholder="🔍 Пошук за номером авто" style="width: 100%; box-sizing: border-box;">
-            </div>
+        <div style="margin-bottom: 8px;">🚛 Транспортні засоби</div>
+        
+        <input type="text" id="filter_car_number" class="filter-input car-filter" placeholder="🔍 Пошук за номером авто" style="width: 100%; box-sizing: border-box; margin-bottom: 8px;">
+        
+        <input type="text" id="node_filter_cars" class="filter-input car-filter" placeholder="📍 Місцезнаходження авто" style="width: 100%; box-sizing: border-box;">
+        <input type="text" id="filter_car_type" class="filter-input car-filter" placeholder="🚛 Тип ТЗ" style="width: 100%; box-sizing: border-box;">
+    </div>
             <div id="vehicle_list" class="vehicle-container">
                 <div class="empty-msg">Завантажте .xlsx з машинами</div>
             </div>
@@ -58,13 +63,11 @@
 
                 <input type="text" id="filter_auto_type" class="filter-input trip-filter" placeholder="Тип авто (напр. BDF)">
                 <input type="text" id="filter_trip_type" class="filter-input trip-filter" placeholder="Тип рейсу">
+                <input type="text" id="node_filter_trips" class="filter-input trip-filter" placeholder="Відправник">
                 <input type="text" id="filter_destination" class="filter-input trip-filter" placeholder="Отримувач">
                 <input type="text" id="filter_assigned_car" class="filter-input trip-filter" placeholder="Номер призначеного авто">
-                <button onclick="balanceFleet()" class="action-btn" style="margin-left: auto; background-color: #ff9800;">⚖️ Баланс Пн (Ідеал)</button>
-
-
-                <button onclick="runAutoAssignment()" class="action-btn" style="margin-left: auto;">🚀 Авто-призначення</button>
-                <button onclick="exportToExcel()" class="action-btn" style="background-color: #28a745;">💾 Зберегти</button>
+                
+                
             </div>
 
             <div class="table-container clusterize-scroll" id="scrollArea">
@@ -75,6 +78,7 @@
                             <th class="col-short">GRF</th>
                             <th class="col-med">Тип</th>
                             <th class="col-med">Тип авто</th> 
+                            <th class="col-med">Тип (факт)</th>
                             <th class="col-long">Маршрут</th>
                             <th class="col-med">Відправник</th>
                             <th class="col-med">Отримувач</th>

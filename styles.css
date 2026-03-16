@@ -285,3 +285,8 @@ th {
     outline: 2px dashed var(--primary); /* Синій пунктир по контуру */
     outline-offset: -2px;
 }
+
+.col-fact {
+    width: 100px;
+    color: #1a73e8;
+}

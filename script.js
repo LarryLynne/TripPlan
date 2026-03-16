@@ -13,31 +13,53 @@ const dropZoneCars = document.getElementById('drop_zone_cars');
 const fileInput = document.getElementById('file_input');
 const carsInput = document.getElementById('cars_input');
 
+function addListenerIfExist(id, event, fn) {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener(event, fn);
+}
+
+// Слушаем новые и старые ID
+addListenerIfExist('node_filter_trips', 'input', applyFilters); // Если переименовал верхний фильтр
+addListenerIfExist('node_filter', 'input', applyFilters);       // Если оставил старое название верхнего фильтра
+addListenerIfExist('node_filter_cars', 'input', applyFilters);  // НАШ НОВЫЙ ФИЛЬТР АВТО
+addListenerIfExist('filter_car_number', 'input', applyFilters);
+// ДОДАЛИ СЛУХАЧ ДЛЯ ТИПУ АВТО:
+addListenerIfExist('filter_car_type', 'input', applyFilters);
+
 // Прив'язка подій до всіх фільтрів для миттєвої реакції
-document.getElementById('node_filter').addEventListener('input', applyFilters);
+document.getElementById('node_filter_trips').addEventListener('input', applyFilters);
+document.getElementById('node_filter_cars').addEventListener('input', applyFilters);
 document.getElementById('filter_car_number').addEventListener('input', applyFilters);
 document.querySelectorAll('.trip-filter').forEach(el => el.addEventListener('input', applyFilters));
 document.querySelectorAll('.trip-filter').forEach(el => el.addEventListener('change', applyFilters));
 
 // Універсальна функція застосування фільтрів
 function applyFilters() {
-    const nodeFilter = (document.getElementById('node_filter').value || "").trim().toLowerCase();
+    // Зчитуємо вузли графіків
+    const elTripNode = document.getElementById('node_filter_trips') || document.getElementById('node_filter');
+    const tripNodeFilter = elTripNode ? elTripNode.value.trim().toLowerCase() : "";
     
-    // Фільтри графіків
-    const dayFilter = document.getElementById('filter_day').value;
-    const statusFilter = document.getElementById('filter_status').value;
-    const autoTypeFilter = (document.getElementById('filter_auto_type').value || "").trim().toLowerCase();
-    const tripTypeFilter = (document.getElementById('filter_trip_type').value || "").trim().toLowerCase();
-    const assignedCarFilter = (document.getElementById('filter_assigned_car').value || "").trim().toLowerCase();
-    const destFilter = (document.getElementById('filter_destination').value || "").trim().toLowerCase();
+    // Зчитуємо фільтри МАШИН
+    const elCarNode = document.getElementById('node_filter_cars');
+    const elCarNum = document.getElementById('filter_car_number');
+    const elCarType = document.getElementById('filter_car_type'); // Зчитуємо нове поле
 
-    // 1. Фільтруємо графіки і ЗБЕРІГАЄМО в глобальну змінну
+    const carNodeFilter = elCarNode ? elCarNode.value.trim().toLowerCase() : "";
+    const carNumberFilter = elCarNum ? elCarNum.value.trim().toLowerCase() : "";
+    const carTypeFilter = elCarType ? elCarType.value.trim().toLowerCase() : ""; // Отримуємо значення
+    
+    // Зчитуємо інші фільтри графіків
+    const dayFilter = document.getElementById('filter_day') ? document.getElementById('filter_day').value : "";
+    const statusFilter = document.getElementById('filter_status') ? document.getElementById('filter_status').value : "";
+    const autoTypeFilter = document.getElementById('filter_auto_type') ? document.getElementById('filter_auto_type').value.trim().toLowerCase() : "";
+    const tripTypeFilter = document.getElementById('filter_trip_type') ? document.getElementById('filter_trip_type').value.trim().toLowerCase() : "";
+    const assignedCarFilter = document.getElementById('filter_assigned_car') ? document.getElementById('filter_assigned_car').value.trim().toLowerCase() : "";
+    const destFilter = document.getElementById('filter_destination') ? document.getElementById('filter_destination').value.trim().toLowerCase() : "";
+
+    // 1. Фільтруємо графіки
     window.currentFilteredTrips = window.allTrips.filter(t => {
-        if (nodeFilter && !t.origin.toLowerCase().includes(nodeFilter)) return false;
-        
-        // НОВИЙ РЯДОК: Перевіряємо отримувача
+        if (tripNodeFilter && !t.origin.toLowerCase().includes(tripNodeFilter)) return false;
         if (destFilter && !t.destination.toLowerCase().includes(destFilter)) return false;
-        
         if (dayFilter !== "" && t.logDays[parseInt(dayFilter)] !== '+') return false;
         if (statusFilter === 'with_auto' && !t.assignedCar) return false;
         if (statusFilter === 'without_auto' && t.assignedCar) return false;
@@ -47,15 +69,16 @@ function applyFilters() {
         return true; 
     });
 
-    // 2. Фільтруємо машини і теж ЗБЕРІГАЄМО
-    const carNumberFilter = (document.getElementById('filter_car_number').value || "").trim().toLowerCase();
+    // 2. Фільтруємо машини (ТУТ ДОДАНО ПЕРЕВІРКУ ТИПУ)
     window.currentFilteredVehicles = window.allVehicles.filter(v => {
-        if (nodeFilter && !v.node.toLowerCase().includes(nodeFilter)) return false;
+        if (carNodeFilter && !v.node.toLowerCase().includes(carNodeFilter)) return false;
         if (carNumberFilter && !v.number.toLowerCase().includes(carNumberFilter)) return false;
+        // Перевіряємо збіг за типом ТЗ
+        if (carTypeFilter && !v.type.toLowerCase().includes(carTypeFilter)) return false;
         return true;
     });
 
-    // Відмальовуємо вже відфільтровані масиви
+    // Відмальовуємо
     render(window.currentFilteredTrips);
     renderVehicles(); 
 }
@@ -290,12 +313,31 @@ function renderVehicles() {
     }).join('');
 }
 
+// Знаходимо понеділок поточного тижня як точку відліку
+function getBaseMonday() {
+    const now = new Date();
+    const day = now.getDay();
+    const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+    const monday = new Date(now.setDate(diff));
+    monday.setHours(0, 0, 0, 0);
+    return monday;
+}
+const baseMonday = getBaseMonday();
+
+
 function formatMinToWeekTime(totalMin) {
     const days = ['Пн','Вт','Ср','Чт','Пт','Сб','Нд'];
     const d = Math.floor((totalMin % 10080) / 1440);
     const h = Math.floor((totalMin % 1440) / 60);
     const m = totalMin % 60;
-    return `${days[d]} ${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}`;
+    
+    // Вираховуємо дату
+    const targetDate = new Date(baseMonday);
+    targetDate.setDate(baseMonday.getDate() + d);
+    const dd = String(targetDate.getDate()).padStart(2, '0');
+    const mm = String(targetDate.getMonth() + 1).padStart(2, '0');
+    
+    return `${dd}.${mm} (${days[d]}) ${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}`;
 }
 
 // Drag & Drop
@@ -331,11 +373,17 @@ function assignCar(vNumber, tripId) {
     const car = window.allVehicles.find(v => v.number === vNumber);
     const trip = window.allTrips.find(t => t.id === tripId);
 
-    if (car.type !== trip.auto) return alert(`❌ Тип ТЗ не підходить! (Треба: ${trip.auto}, є: ${car.type})`);
+    // Мягкая проверка типа авто
+    if (car.type !== trip.auto) {
+        const confirmChange = confirm(`Тип ТЗ не совпадает! \nПлан: ${trip.auto}\nФакт: ${car.type}\n\nНазначить все равно?`);
+        if (!confirmChange) return;
+    }
+
     if (car.node !== trip.origin) return alert(`❌ Машина на ${car.node}, а треба на ${trip.origin}`);
     if (car.availableTime > trip.trueStart) return alert("❌ Машина ще не звільниться до моменту подачі!");
 
     trip.assignedCar = car.number;
+    trip.assignedCarType = car.type; // Сохраняем фактический тип в объект рейса
     car.node = trip.destination;
     car.availableTime = trip.freeInt;
 
@@ -431,6 +479,7 @@ function render(trips) {
             <td>${t.grf}</td>
             <td>${t.type || '---'}</td> 
             <td>${t.auto || '---'}</td> 
+            <td style="color: #1a73e8; font-weight: bold;">${t.assignedCar ? t.assignedCarType : '---'}</td>
             <td title="${t.route}">${t.route}</td> 
             <td>${t.origin}</td>
             <td>${t.destination}</td>
@@ -497,11 +546,10 @@ function unassign(tripId) {
         // 3. Відміняємо цей рейс і ВСІ НАСТУПНІ за ним у ланцюжку
         for (let i = targetIndex; i < carTrips.length; i++) {
             if (carTrips[i].grf === 'TELEPORT') {
-                // Якщо це був створений нами телепорт — просто видаляємо його з пам'яті назавжди
                 window.allTrips = window.allTrips.filter(t => t.id !== carTrips[i].id);
             } else {
-                // Звичайний графік просто відкріпляємо від машини
                 carTrips[i].assignedCar = null;
+                carTrips[i].assignedCarType = null; // Очищаем факт
             }
         }
 
@@ -521,38 +569,65 @@ function unassign(tripId) {
 }
 
 async function runAutoAssignment() {
-    let count = 0;
-    
-    // Сортуємо і беремо ТІЛЬКИ ВІДФІЛЬТРОВАНІ графіки
-    const sortedTrips = [...window.currentFilteredTrips].sort((a, b) => a.depInt - b.depInt);
+    let totalCount = 0;
+    let assignedInThisIteration;
 
-    for (const trip of sortedTrips) {
-        if (trip.assignedCar) continue; // Якщо вже є авто, пропускаємо
+    // Крутимо цикл доти, доки в ітерації була призначена хоча б одна машина
+    do {
+        assignedInThisIteration = 0;
+        const sortedTrips = [...window.currentFilteredTrips].sort((a, b) => a.depInt - b.depInt);
 
-        let bestCar = null;
-        let minWait = Infinity;
+        for (const trip of sortedTrips) {
+            if (trip.assignedCar) continue;
 
-        // Шукаємо ТІЛЬКИ серед відфільтрованих машин
-        for (const car of window.currentFilteredVehicles) {
-            if (car.type === trip.auto && car.node === trip.origin && car.availableTime <= trip.trueStart) {
-                let wait = trip.trueStart - car.availableTime;
-                if (wait < minWait) {
-                    minWait = wait;
-                    bestCar = car;
+            let bestCar = null;
+            let minWait = Infinity;
+
+            for (const car of window.currentFilteredVehicles) {
+                if (car.type === trip.auto && car.node === trip.origin && car.availableTime <= trip.trueStart) {
+                    let wait = trip.trueStart - car.availableTime;
+                    if (wait < minWait) {
+                        minWait = wait;
+                        bestCar = car;
+                    }
                 }
             }
-        }
 
-        if (bestCar) {
-            trip.assignedCar = bestCar.number;
-            bestCar.node = trip.destination;
-            bestCar.availableTime = trip.freeInt;
-            count++;
+            if (bestCar) {
+                trip.assignedCar = bestCar.number;
+                bestCar.node = trip.destination;
+                bestCar.availableTime = trip.freeInt;
+                
+                assignedInThisIteration++;
+                totalCount++;
+            }
         }
-    }
+    } while (assignedInThisIteration > 0);
 
     applyFilters();
-    alert(`Автоматично призначено ${count} рейсів.`);
+    alert(`Автоматично призначено ${totalCount} рейсів.`);
+}
+
+// Нова функція: повне скасування всіх призначень
+function cancelAllAssignments() {
+    if (!confirm("Ви впевнені, що хочете скасувати ВСІ призначення та видалити створені телепорти?")) return;
+
+    // 1. Очищаємо графіки
+    window.allTrips.forEach(t => {
+        t.assignedCar = null;
+    });
+
+    // 2. Видаляємо всі "фейкові" рейси-телепорти, якщо вони були створені
+    window.allTrips = window.allTrips.filter(t => t.grf !== 'TELEPORT');
+
+    // 3. Повертаємо машини на їхні початкові позиції
+    window.allVehicles.forEach(v => {
+        v.node = v.originalNode;
+        v.availableTime = v.originalTime;
+    });
+
+    applyFilters();
+    alert("Всі призначення успішно скасовано!");
 }
 
 function balanceFleet() {
@@ -641,7 +716,7 @@ function exportToExcel() {
     // --- АРКУШ 2: ГРАФІКИ ---
     // Формуємо заголовки (тільки ті колонки, що є на екрані)
     const tripsData = [
-        ["Авто", "GRF", "Тип", "Тип авто", "Маршрут", "Відправник", "Отримувач", 
+        ["Авто", "GRF", "Тип", "Тип авто", "Тип авто (факт)", "Маршрут", "Відправник", "Отримувач", 
          "Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Нд", 
          "Подача", "Виїзд", "Приїзд", "Вільний"]
     ];
@@ -653,6 +728,7 @@ function exportToExcel() {
             t.grf,
             t.type || "",
             t.auto || "",
+            t.assignedCar ? t.assignedCarType : "",
             t.route,
             t.origin,
             t.destination,
